@@ -2,6 +2,8 @@
 
 A Pomodoro timer app built with Rust and egui.
 
+![image](https://github.com/chiefdinkan/Pom/assets/87846149/8b674c7c-63d1-44b2-b03c-652f27533cbe)
+
 ## Features
 
 - 🕒 Simple Pomodoro timer functionality.
@@ -19,12 +21,12 @@ A Pomodoro timer app built with Rust and egui.
 
 Clone the repository:
 
-```bash
+```
+bash
 git clone https://github.com/yourusername/rust-pomodoro-app.git
 cd rust-pomodoro-app
 ```
 
-````
 
 Build and run the application:
 
@@ -33,9 +35,16 @@ cargo build --release
 cargo run --release
 ```
 
+### Or install from releases
+
+## todo
+[] code refactoring
+[] mutiple timer options
+[] user input for timer
+[] and more...
+
 ## Usage
 
-- Adjust the Pomodoro timer settings.
 - Start, pause, and reset the timer.
 - Enjoy increased productivity using the Pomodoro technique.
 
