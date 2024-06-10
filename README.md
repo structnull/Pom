@@ -2,7 +2,8 @@
 
 A Pomodoro timer app built with Rust and egui.
 
-![image](https://github.com/chiefdinkan/Pom/assets/87846149/8b674c7c-63d1-44b2-b03c-652f27533cbe)
+
+![image](https://github.com/chiefdinkan/Pom/assets/87846149/5b0da596-1231-447b-b7ca-8dbab1881704)
 
 ## Features
 
@@ -38,10 +39,10 @@ cargo run --release
 ### Or install from releases
 
 ## todo
-[] code refactoring
-[] mutiple timer options
-[] user input for timer
-[] and more...
+- [] code refactoring
+- [x] mutiple timer options
+- [x] user input for timer
+- [] and more...
 
 ## Usage
 
