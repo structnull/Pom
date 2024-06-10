@@ -9,6 +9,7 @@ struct Pom {
     last_update: Instant,
     remaining_time: Duration,
     total_duration: Duration,
+    time_setting: u64, 
 }
 
 enum TimerState {
@@ -26,11 +27,15 @@ impl Pom {
             last_update: Instant::now(),
             remaining_time: total_duration,
             total_duration,
+            time_setting: TIME,
         }
     }
 
     // Start the timer
     fn start_timer(&mut self) {
+        let total_duration = Duration::new(self.time_setting * 60, 0);
+        self.total_duration = total_duration;
+        self.remaining_time = total_duration;
         self.state = TimerState::Running;
         self.last_update = Instant::now();
     }
@@ -82,7 +87,7 @@ impl Pom {
         end_angle: f32,
         stroke: Stroke,
     ) {
-        let segments = 20; // Reduced number of segments
+        let segments = 100;
         let angle_step = (end_angle - start_angle) / segments as f32;
         let points: Vec<Pos2> = (0..=segments)
             .map(|i| {
@@ -136,29 +141,62 @@ impl App for Pom {
             let painter = ui.painter();
             let center = rect.center();
             let radius = rect.width() / 2.0;
-            let progress_angle = self.progress() * std::f32::consts::TAU; // wth
 
-            // Draw the circular progress bar background (need rework)
+            // Draw the circular progress bar background
             painter.circle_stroke(center, radius, Stroke::new(10.0, Color32::from_gray(80)));
 
-            // Draw the progress arcccccccccccccccccccc
-            Pom::draw_arc(
-                painter,
-                center,
-                radius,
-                0.0,
-                progress_angle,
-                Stroke::new(10.0, Color32::from_rgb(100, 200, 100)),
-            );
+            match self.state {
+                TimerState::Finished => {
+                    painter.text(
+                        center,
+                        egui::Align2::CENTER_CENTER,
+                        "Time's up!",
+                        egui::TextStyle::Heading.resolve(ui.style()),
+                        Color32::WHITE,
+                    );
+                }
+                TimerState::Paused => {
+                    painter.text(
+                        center,
+                        egui::Align2::CENTER_CENTER,
+                        "Paused",
+                        egui::TextStyle::Heading.resolve(ui.style()),
+                        Color32::WHITE,
+                    );
+                }
+                _ => {
+                    let progress_angle = self.progress() * std::f32::consts::TAU;
 
-            let text = Pom::format_duration(self.remaining_time);
-            painter.text(
-                center,
-                egui::Align2::CENTER_CENTER,
-                text,
-                egui::TextStyle::Heading.resolve(ui.style()),
-                Color32::WHITE,
-            );
+                    // Draw the progress arc
+                    Pom::draw_arc(
+                        painter,
+                        center,
+                        radius,
+                        0.0,
+                        progress_angle,
+                        Stroke::new(10.0, Color32::from_rgb(100, 200, 100)),
+                    );
+
+                    let text = Pom::format_duration(self.remaining_time);
+                    painter.text(
+                        center,
+                        egui::Align2::CENTER_CENTER,
+                        text,
+                        egui::TextStyle::Heading.resolve(ui.style()),
+                        Color32::WHITE,
+                    );
+                }
+            }
+
+            // Add slider to set timer duration
+            ui.horizontal(|ui| {
+                ui.add(
+                    egui::Slider::new(&mut self.time_setting, 0..=60)
+                        .clamp_to_range(true)
+                        .text("Timer (min)")
+                        .integer(),
+                );
+            });
 
             // Add buttons to control the timer
             ui.horizontal(|ui| {
@@ -174,17 +212,6 @@ impl App for Pom {
                     self.reset_timer();
                 }
             });
-
-            // Display status message based on timer state
-            match self.state {
-                TimerState::Finished => {
-                    ui.label("Time's up!");
-                }
-                TimerState::Paused => {
-                    ui.label("Paused");
-                }
-                _ => {}
-            }
         });
     }
 }
