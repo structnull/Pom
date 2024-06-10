@@ -39,7 +39,8 @@ cargo run --release
 ### Or install from releases
 
 ## todo
-- [] code refactoring
+- [x] code refactoring
+- [x] notification support
 - [x] mutiple timer options
 - [x] user input for timer
 - [] and more...

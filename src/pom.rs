@@ -1,8 +1,16 @@
 use eframe::App;
-use std::time::{Duration, Instant};
 use egui::{CentralPanel, Color32, Context, Pos2, Shape, Stroke, Vec2};
+use notify_rust::Notification;
+use std::time::{Duration, Instant};
 
 const TIME: u64 = 25;
+
+enum Notify {
+    Finished,
+    Started,
+    Resume,
+    Paused,
+}
 
 pub struct Pom {
     state: TimerState,
@@ -31,6 +39,41 @@ impl Pom {
         }
     }
 
+    // Method to send notifications
+    // simple impl for now maybe add new notify features in future?
+    fn send_notification(&self, notify: Notify) {
+        match notify {
+            Notify::Finished => {
+                Notification::new()
+                    .summary("Pomodoro Timer")
+                    .body("Time's up! Take a break.")
+                    .show()
+                    .unwrap();
+            }
+            Notify::Started => {
+                Notification::new()
+                    .summary("Pomodoro Timer")
+                    .body("Timer started.")
+                    .show()
+                    .unwrap();
+            }
+            Notify::Paused => {
+                Notification::new()
+                    .summary("Pomodoro Timer")
+                    .body("Timer paused.")
+                    .show()
+                    .unwrap();
+            }
+            Notify::Resume => {
+                Notification::new()
+                    .summary("Pomodoro Timer")
+                    .body("Timer Resumed.")
+                    .show()
+                    .unwrap();
+            }
+        }
+    }
+
     // Start the timer
     fn start_timer(&mut self) {
         let total_duration = Duration::new(self.time_setting * 60, 0);
@@ -38,11 +81,13 @@ impl Pom {
         self.remaining_time = total_duration;
         self.state = TimerState::Running;
         self.last_update = Instant::now();
+        self.send_notification(Notify::Started);
     }
 
     fn pause_timer(&mut self) {
         if let TimerState::Running = self.state {
             self.state = TimerState::Paused;
+            self.send_notification(Notify::Paused);
         }
     }
 
@@ -50,6 +95,7 @@ impl Pom {
         if let TimerState::Paused = self.state {
             self.state = TimerState::Running;
             self.last_update = Instant::now();
+            self.send_notification(Notify::Resume);
         }
     }
 
@@ -67,12 +113,13 @@ impl Pom {
             } else {
                 self.remaining_time = Duration::new(0, 0);
                 self.state = TimerState::Finished;
+                self.send_notification(Notify::Finished);
             }
             self.last_update = now;
         }
     }
 
-    // Format the duration into a MM:SS string
+    // Format the duration into a MM:SS string (imp)
     fn format_duration(duration: Duration) -> String {
         let minutes = duration.as_secs() / 60;
         let seconds = duration.as_secs() % 60;
@@ -177,7 +224,7 @@ impl App for Pom {
                 _ => {
                     let progress_angle = self.progress() * std::f32::consts::TAU;
 
-                    // Draw the progress arc
+                    // Draw the progress arcccc
                     Pom::draw_arc(
                         painter,
                         center,
@@ -197,7 +244,7 @@ impl App for Pom {
                     );
                 }
             }
-            
+
             ui.with_layout(egui::Layout::top_down(egui::Align::Center), |ui| {
                 //ui.add_space(20.0);
                 ui.add(

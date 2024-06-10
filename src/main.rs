@@ -1,6 +1,6 @@
+use crate::pom::Pom;
 use eframe::run_native;
 use egui::ViewportBuilder;
-use crate::pom::Pom;
 
 mod pom;
 
@@ -12,7 +12,8 @@ fn main() {
             .with_resizable(false)
             .with_taskbar(true)
             .with_decorations(true)
-            .with_inner_size([682.0, 782.0]),
+            .with_inner_size([682.0, 782.0])
+            .with_maximize_button(false),
         ..Default::default()
     };
 
