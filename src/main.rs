@@ -9,7 +9,7 @@ struct Pom {
     last_update: Instant,
     remaining_time: Duration,
     total_duration: Duration,
-    time_setting: u64, 
+    time_setting: u64,
 }
 
 enum TimerState {
@@ -43,6 +43,13 @@ impl Pom {
     fn pause_timer(&mut self) {
         if let TimerState::Running = self.state {
             self.state = TimerState::Paused;
+        }
+    }
+
+    fn resume_timer(&mut self) {
+        if let TimerState::Paused = self.state {
+            self.state = TimerState::Running;
+            self.last_update = Instant::now();
         }
     }
 
@@ -141,9 +148,10 @@ impl App for Pom {
             let painter = ui.painter();
             let center = rect.center();
             let radius = rect.width() / 2.0;
+            let nrad = radius - 80.0;
 
             // Draw the circular progress bar background
-            painter.circle_stroke(center, radius, Stroke::new(10.0, Color32::from_gray(80)));
+            painter.circle_stroke(center, nrad, Stroke::new(10.0, Color32::from_gray(80)));
 
             match self.state {
                 TimerState::Finished => {
@@ -171,7 +179,7 @@ impl App for Pom {
                     Pom::draw_arc(
                         painter,
                         center,
-                        radius,
+                        nrad,
                         0.0,
                         progress_angle,
                         Stroke::new(10.0, Color32::from_rgb(100, 200, 100)),
@@ -208,6 +216,10 @@ impl App for Pom {
                     self.pause_timer();
                 }
 
+                if ui.button("Resume").clicked() {
+                    self.resume_timer();
+                }
+
                 if ui.button("Reset").clicked() {
                     self.reset_timer();
                 }
@@ -220,8 +232,10 @@ fn main() {
     let app = "Pom";
     let option = eframe::NativeOptions {
         viewport: ViewportBuilder::default()
-            .with_taskbar(false)
-            .with_decorations(false)
+            .with_title("Pom")
+            .with_resizable(false)
+            .with_taskbar(true)
+            .with_decorations(true)
             //.with_always_on_top()
             .with_inner_size([731.0, 812.0]),
         ..Default::default()
