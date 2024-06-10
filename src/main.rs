@@ -149,6 +149,8 @@ impl App for Pom {
             let center = rect.center();
             let radius = rect.width() / 2.0;
             let nrad = radius - 80.0;
+            let xpos = 160.0;
+            let ypos = 40.0;
 
             // Draw the circular progress bar background
             painter.circle_stroke(center, nrad, Stroke::new(10.0, Color32::from_gray(80)));
@@ -195,34 +197,31 @@ impl App for Pom {
                     );
                 }
             }
-
-            // Add slider to set timer duration
-            ui.horizontal(|ui| {
+            
+            ui.with_layout(egui::Layout::top_down(egui::Align::Center), |ui| {
+                //ui.add_space(20.0);
                 ui.add(
                     egui::Slider::new(&mut self.time_setting, 0..=60)
                         .clamp_to_range(true)
                         .text("Timer (min)")
                         .integer(),
                 );
-            });
 
-            // Add buttons to control the timer
-            ui.horizontal(|ui| {
-                if ui.button("Start").clicked() {
-                    self.start_timer();
-                }
-
-                if ui.button("Pause").clicked() {
-                    self.pause_timer();
-                }
-
-                if ui.button("Resume").clicked() {
-                    self.resume_timer();
-                }
-
-                if ui.button("Reset").clicked() {
-                    self.reset_timer();
-                }
+                // Add buttons to control the timer
+                ui.horizontal(|ui| {
+                    ui.add_sized([xpos, ypos], egui::Button::new("Start"))
+                        .clicked()
+                        .then(|| self.start_timer());
+                    ui.add_sized([xpos, ypos], egui::Button::new("Pause"))
+                        .clicked()
+                        .then(|| self.pause_timer());
+                    ui.add_sized([xpos, ypos], egui::Button::new("Resume"))
+                        .clicked()
+                        .then(|| self.resume_timer());
+                    ui.add_sized([xpos, ypos], egui::Button::new("Reset"))
+                        .clicked()
+                        .then(|| self.reset_timer());
+                });
             });
         });
     }
@@ -237,7 +236,7 @@ fn main() {
             .with_taskbar(true)
             .with_decorations(true)
             //.with_always_on_top()
-            .with_inner_size([731.0, 812.0]),
+            .with_inner_size([682.0, 782.0]),
         ..Default::default()
     };
 
