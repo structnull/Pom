@@ -1,9 +1,8 @@
-use eframe::{run_native, App, NativeOptions};
-use egui::{CentralPanel, Color32, Context, Pos2, Shape, Stroke, Vec2};
+use eframe::{run_native, App};
+use egui::{CentralPanel, Color32, Context, Pos2, Shape, Stroke, Vec2, ViewportBuilder};
 use std::time::{Duration, Instant};
 
 const TIME: u64 = 25;
-
 
 struct Pom {
     state: TimerState,
@@ -11,7 +10,6 @@ struct Pom {
     remaining_time: Duration,
     total_duration: Duration,
 }
-
 
 enum TimerState {
     Ready,
@@ -153,7 +151,6 @@ impl App for Pom {
                 Stroke::new(10.0, Color32::from_rgb(100, 200, 100)),
             );
 
-
             let text = Pom::format_duration(self.remaining_time);
             painter.text(
                 center,
@@ -194,7 +191,14 @@ impl App for Pom {
 
 fn main() {
     let app = "Pom";
-    let win_opt = NativeOptions::default();
+    let option = eframe::NativeOptions {
+        viewport: ViewportBuilder::default()
+            .with_taskbar(false)
+            .with_decorations(false)
+            //.with_always_on_top()
+            .with_inner_size([731.0, 812.0]),
+        ..Default::default()
+    };
 
-    let _ = run_native(app, win_opt, Box::new(|_cc| Box::new(Pom::new())));
+    let _ = run_native(app, option, Box::new(|_cc| Box::new(Pom::new())));
 }
