@@ -9,6 +9,8 @@ A Pomodoro timer app built with Rust and egui.
 
 - 🕒 Simple Pomodoro timer functionality.
 - 🎨 Built with [egui](https://github.com/emilk/egui), a blazingly fast GUI library for Rust.
+- Notification support
+
 
 
 ## Getting Started
