@@ -1,4 +1,5 @@
 use crate::pom::Pom;
+use eframe::egui::{Style, Visuals};
 use eframe::run_native;
 use egui::ViewportBuilder;
 
@@ -17,5 +18,16 @@ fn main() {
         ..Default::default()
     };
 
-    let _ = run_native(app, option, Box::new(|_cc| Box::new(Pom::new())));
+    let _ = run_native(
+        app,
+        option,
+        Box::new(|creation_context| {
+            let style = Style {
+                visuals: Visuals::dark(),
+                ..Style::default()
+            };
+            creation_context.egui_ctx.set_style(style);
+            Box::new(Pom::new())
+        }),
+    );
 }

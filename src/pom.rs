@@ -209,7 +209,7 @@ impl App for Pom {
                         egui::Align2::CENTER_CENTER,
                         "Time's up!",
                         egui::TextStyle::Heading.resolve(ui.style()),
-                        Color32::WHITE,
+                        Color32::DARK_RED,
                     );
                 }
                 TimerState::Paused => {
@@ -218,7 +218,7 @@ impl App for Pom {
                         egui::Align2::CENTER_CENTER,
                         "Paused",
                         egui::TextStyle::Heading.resolve(ui.style()),
-                        Color32::WHITE,
+                        Color32::YELLOW,
                     );
                 }
                 _ => {
