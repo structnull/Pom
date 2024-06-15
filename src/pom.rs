@@ -245,31 +245,43 @@ impl App for Pom {
                 }
             }
 
-            ui.with_layout(egui::Layout::top_down(egui::Align::Center), |ui| {
-                //ui.add_space(20.0);
-                ui.add(
-                    egui::Slider::new(&mut self.time_setting, 0..=60)
-                        .clamp_to_range(true)
-                        .text("Timer (min)")
-                        .integer(),
+            egui::TopBottomPanel::bottom("bottom_panel").show(ctx, |ui| {
+                ui.with_layout(
+                    egui::Layout::top_down_justified(egui::Align::Center),
+                    |ui| {
+                        ui.add(
+                            // todo: somehow adjust slider length
+                            egui::Slider::new(&mut self.time_setting, 0..=60)
+                                .clamp_to_range(true)
+                                .text("Timer (min)")
+                                .integer(),
+                        );
+                    },
                 );
-
-                // Add buttons to control the timer
-                ui.horizontal(|ui| {
-                    ui.add_sized([xpos, ypos], egui::Button::new("Start"))
-                        .clicked()
-                        .then(|| self.start_timer());
-                    ui.add_sized([xpos, ypos], egui::Button::new("Pause"))
-                        .clicked()
-                        .then(|| self.pause_timer());
-                    ui.add_sized([xpos, ypos], egui::Button::new("Resume"))
-                        .clicked()
-                        .then(|| self.resume_timer());
-                    ui.add_sized([xpos, ypos], egui::Button::new("Reset"))
-                        .clicked()
-                        .then(|| self.reset_timer());
-                });
             });
+
+            ui.with_layout(
+                egui::Layout::top_down_justified(egui::Align::Center),
+                |ui| {
+                    //ui.add_space(20.0);
+
+                    // Add buttons to control the timer
+                    ui.horizontal(|ui| {
+                        ui.add_sized([xpos, ypos], egui::Button::new("Start"))
+                            .clicked()
+                            .then(|| self.start_timer());
+                        ui.add_sized([xpos, ypos], egui::Button::new("Pause"))
+                            .clicked()
+                            .then(|| self.pause_timer());
+                        ui.add_sized([xpos, ypos], egui::Button::new("Resume"))
+                            .clicked()
+                            .then(|| self.resume_timer());
+                        ui.add_sized([xpos, ypos], egui::Button::new("Reset"))
+                            .clicked()
+                            .then(|| self.reset_timer());
+                    });
+                },
+            );
         });
     }
 }
