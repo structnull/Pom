@@ -3,7 +3,7 @@
 A Pomodoro timer app built with Rust and egui.
 
 
-![image](https://github.com/chiefdinkan/Pom/assets/87846149/9d9d1a39-26fa-4842-ad62-aa37c172c2e3)
+![image](https://github.com/chiefdinkan/Pom/assets/87846149/1b29b14b-e2b5-4578-9a41-e97934de1399)
 
 ## Features
 
