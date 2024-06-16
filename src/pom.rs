@@ -235,8 +235,7 @@ impl App for Pom {
                     );
 
                     let text = Pom::format_duration(self.remaining_time);
-                    let font_id = FontId::new(50.0, FontFamily::Proportional); // Set the desired font size and family here
-                                                                               //let font_id = FontId::new(24.0, TextStyle::Heading); // Set the desired font size here
+                    let font_id = FontId::new(50.0, FontFamily::Proportional);
                     painter.text(
                         center,
                         egui::Align2::CENTER_CENTER,
