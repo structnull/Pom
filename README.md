@@ -26,8 +26,8 @@ Clone the repository:
 
 ```
 bash
-git clone https://github.com/yourusername/rust-pomodoro-app.git
-cd rust-pomodoro-app
+git clone https://github.com/chiefdinkan/Pom.git
+cd Pom
 ```
 
 
