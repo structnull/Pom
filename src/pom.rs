@@ -1,5 +1,5 @@
 use eframe::App;
-use egui::{CentralPanel, Color32, Context, Pos2, Shape, Stroke, Vec2};
+use egui::{CentralPanel, Color32, Context, FontFamily, FontId, Pos2, Shape, Stroke, Vec2};
 use notify_rust::Notification;
 use std::time::{Duration, Instant};
 
@@ -235,11 +235,13 @@ impl App for Pom {
                     );
 
                     let text = Pom::format_duration(self.remaining_time);
+                    let font_id = FontId::new(50.0, FontFamily::Proportional); // Set the desired font size and family here
+                                                                               //let font_id = FontId::new(24.0, TextStyle::Heading); // Set the desired font size here
                     painter.text(
                         center,
                         egui::Align2::CENTER_CENTER,
                         text,
-                        egui::TextStyle::Heading.resolve(ui.style()),
+                        font_id,
                         Color32::WHITE,
                     );
                 }
