@@ -18,6 +18,7 @@ pub struct Pom {
     remaining_time: Duration,
     total_duration: Duration,
     time_setting: u64,
+    sessions_completed: u32, 
 }
 
 enum TimerState {
@@ -36,11 +37,11 @@ impl Pom {
             remaining_time: total_duration,
             total_duration,
             time_setting: TIME,
+            sessions_completed: 0, 
         }
     }
 
     // Method to send notifications
-    // simple impl for now maybe add new notify features in future?
     fn send_notification(&self, notify: Notify) {
         match notify {
             Notify::Finished => {
@@ -67,7 +68,7 @@ impl Pom {
             Notify::Resume => {
                 Notification::new()
                     .summary("Pomodoro Timer")
-                    .body("Timer Resumed.")
+                    .body("Timer resumed.")
                     .show()
                     .unwrap();
             }
@@ -113,20 +114,20 @@ impl Pom {
             } else {
                 self.remaining_time = Duration::new(0, 0);
                 self.state = TimerState::Finished;
+                self.sessions_completed += 1; 
                 self.send_notification(Notify::Finished);
             }
             self.last_update = now;
         }
     }
 
-    // Format the duration into a MM:SS string (imp)
+    // Format the duration into a MM:SS string
     fn format_duration(duration: Duration) -> String {
         let minutes = duration.as_secs() / 60;
         let seconds = duration.as_secs() % 60;
         format!("{:02}:{:02}", minutes, seconds)
     }
 
-    // Calculate the progress of the timer as a fraction
     fn progress(&self) -> f32 {
         (self.total_duration.as_secs_f32() - self.remaining_time.as_secs_f32())
             / self.total_duration.as_secs_f32()
@@ -144,7 +145,7 @@ impl Pom {
         let segments = 100;
         let angle_step = (end_angle - start_angle) / segments as f32;
         let points: Vec<Pos2> = (0..=segments)
-            .map(|i| {
+           .map(|i| {
                 let angle = start_angle + i as f32 * angle_step;
                 Pos2 {
                     x: center.x + radius * angle.cos(),
@@ -178,7 +179,7 @@ impl App for Pom {
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
         self.update_timer();
 
-        // Request a repaint to ensure the UI continuously updates (fixes the hover issue)
+        // Request a repaint to ensure the UI continuously updates
         ctx.request_repaint();
 
         CentralPanel::default().show(ctx, |ui| {
@@ -224,7 +225,7 @@ impl App for Pom {
                 _ => {
                     let progress_angle = self.progress() * std::f32::consts::TAU;
 
-                    // Draw the progress arcccc
+                    // Draw the progress arc
                     Pom::draw_arc(
                         painter,
                         center,
@@ -251,7 +252,6 @@ impl App for Pom {
                     egui::Layout::top_down_justified(egui::Align::Center),
                     |ui| {
                         ui.add(
-                            // todo: somehow adjust slider length
                             egui::Slider::new(&mut self.time_setting, 0..=60)
                                 .clamp_to_range(true)
                                 .text("Timer (min)")
@@ -261,12 +261,11 @@ impl App for Pom {
                 );
             });
 
+            ui.label(format!("Sessions Completed: {}", self.sessions_completed));
+
             ui.with_layout(
                 egui::Layout::top_down_justified(egui::Align::Center),
                 |ui| {
-                    //ui.add_space(20.0);
-
-                    // Add buttons to control the timer
                     ui.horizontal(|ui| {
                         ui.add_sized([xpos, ypos], egui::Button::new("Start"))
                             .clicked()

@@ -1,4 +1,4 @@
-#![windows_subsystem = "windows"]  // dont open console window
+#![windows_subsystem = "windows"] // dont open console window
 
 use crate::pom::Pom;
 use eframe::egui::{Style, Visuals};
