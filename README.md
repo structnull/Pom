@@ -26,7 +26,7 @@ Clone the repository:
 
 ```
 bash
-git clone https://github.com/chiefdinkan/Pom.git
+git clone https://github.com/strcutnull/Pom.git
 cd Pom
 ```
 
