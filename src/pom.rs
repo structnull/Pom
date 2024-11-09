@@ -3,13 +3,15 @@ use egui::{CentralPanel, Color32, Context, FontFamily, FontId, Pos2, Shape, Stro
 use notify_rust::Notification;
 use std::time::{Duration, Instant};
 
-const TIME: u64 = 25;
+const POMODORO_TIME: u64 = 25; // minutes for Pomodoro session
+const BREAK_TIME: u64 = 5; // minutes for short break
 
 enum Notify {
     Finished,
     Started,
     Resume,
     Paused,
+    BreakStarted,
 }
 
 pub struct Pom {
@@ -18,26 +20,30 @@ pub struct Pom {
     remaining_time: Duration,
     total_duration: Duration,
     time_setting: u64,
-    sessions_completed: u32, 
+    sessions_completed: u32,
+    break_time_setting: u64,
 }
 
+#[derive(PartialEq)]
 enum TimerState {
     Ready,
     Running,
     Paused,
     Finished,
+    OnBreak,
 }
 
 impl Pom {
     pub fn new() -> Self {
-        let total_duration = Duration::new(TIME * 60, 0);
+        let total_duration = Duration::new(POMODORO_TIME * 60, 0);
         Self {
             state: TimerState::Ready,
             last_update: Instant::now(),
             remaining_time: total_duration,
             total_duration,
-            time_setting: TIME,
-            sessions_completed: 0, 
+            time_setting: POMODORO_TIME,
+            sessions_completed: 0,
+            break_time_setting: BREAK_TIME, // Default to break time
         }
     }
 
@@ -47,7 +53,7 @@ impl Pom {
             Notify::Finished => {
                 Notification::new()
                     .summary("Pomodoro Timer")
-                    .body("Time's up! Take a break.")
+                    .body("Time's up!.")
                     .show()
                     .unwrap();
             }
@@ -72,10 +78,17 @@ impl Pom {
                     .show()
                     .unwrap();
             }
+            Notify::BreakStarted => {
+                Notification::new()
+                    .summary("Pomodoro Timer")
+                    .body("Break started. Relax!")
+                    .show()
+                    .unwrap();
+            }
         }
     }
 
-    // Start the timer
+    // Start the timer for Pomodoro
     fn start_timer(&mut self) {
         let total_duration = Duration::new(self.time_setting * 60, 0);
         self.total_duration = total_duration;
@@ -83,6 +96,16 @@ impl Pom {
         self.state = TimerState::Running;
         self.last_update = Instant::now();
         self.send_notification(Notify::Started);
+    }
+
+    // Start break timer
+    fn start_break(&mut self) {
+        let break_duration = self.break_time_setting;
+        self.total_duration = Duration::new(break_duration * 60, 0);
+        self.remaining_time = self.total_duration;
+        self.state = TimerState::OnBreak;
+        self.last_update = Instant::now();
+        self.send_notification(Notify::BreakStarted); // This sends the notification when break starts
     }
 
     fn pause_timer(&mut self) {
@@ -106,16 +129,25 @@ impl Pom {
     }
 
     fn update_timer(&mut self) {
-        if let TimerState::Running = self.state {
+        if let TimerState::Running | TimerState::OnBreak = self.state {
             let now = Instant::now();
             let elapsed = now - self.last_update;
             if self.remaining_time > elapsed {
                 self.remaining_time -= elapsed;
             } else {
                 self.remaining_time = Duration::new(0, 0);
-                self.state = TimerState::Finished;
-                self.sessions_completed += 1; 
-                self.send_notification(Notify::Finished);
+                if self.state == TimerState::Running {
+                    self.state = TimerState::Finished;
+                    self.sessions_completed += 1;
+                    self.send_notification(Notify::Finished);
+                    // Start break after Pomodoro session
+                    self.start_break();
+                } else if self.state == TimerState::OnBreak {
+                    self.state = TimerState::Ready;
+                    self.send_notification(Notify::Finished);
+                    // Restart Pomodoro after break
+                    self.start_timer();
+                }
             }
             self.last_update = now;
         }
@@ -145,7 +177,7 @@ impl Pom {
         let segments = 100;
         let angle_step = (end_angle - start_angle) / segments as f32;
         let points: Vec<Pos2> = (0..=segments)
-           .map(|i| {
+            .map(|i| {
                 let angle = start_angle + i as f32 * angle_step;
                 Pos2 {
                     x: center.x + radius * angle.cos(),
@@ -197,8 +229,6 @@ impl App for Pom {
             let center = rect.center();
             let radius = rect.width() / 2.0;
             let nrad = radius - 80.0;
-            let xpos = 160.0;
-            let ypos = 40.0;
 
             // Draw the circular progress bar background
             painter.circle_stroke(center, nrad, Stroke::new(10.0, Color32::from_gray(80)));
@@ -220,6 +250,15 @@ impl App for Pom {
                         "Paused",
                         egui::TextStyle::Heading.resolve(ui.style()),
                         Color32::YELLOW,
+                    );
+                }
+                TimerState::OnBreak => {
+                    painter.text(
+                        center,
+                        egui::Align2::CENTER_CENTER,
+                        "On Break",
+                        egui::TextStyle::Heading.resolve(ui.style()),
+                        Color32::LIGHT_BLUE,
                     );
                 }
                 _ => {
@@ -254,7 +293,15 @@ impl App for Pom {
                         ui.add(
                             egui::Slider::new(&mut self.time_setting, 0..=60)
                                 .clamp_to_range(true)
-                                .text("Timer (min)")
+                                .text("Pomodoro Timer (min)")
+                                .trailing_fill(true)
+                                .integer(),
+                        );
+                        ui.add(
+                            egui::Slider::new(&mut self.break_time_setting, 0..=60)
+                                .clamp_to_range(true)
+                                .text("Break Time (min)")
+                                .trailing_fill(true)
                                 .integer(),
                         );
                     },
@@ -267,16 +314,16 @@ impl App for Pom {
                 egui::Layout::top_down_justified(egui::Align::Center),
                 |ui| {
                     ui.horizontal(|ui| {
-                        ui.add_sized([xpos, ypos], egui::Button::new("Start"))
+                        ui.add_sized([160.0, 40.0], egui::Button::new("Start"))
                             .clicked()
                             .then(|| self.start_timer());
-                        ui.add_sized([xpos, ypos], egui::Button::new("Pause"))
+                        ui.add_sized([160.0, 40.0], egui::Button::new("Pause"))
                             .clicked()
                             .then(|| self.pause_timer());
-                        ui.add_sized([xpos, ypos], egui::Button::new("Resume"))
+                        ui.add_sized([160.0, 40.0], egui::Button::new("Resume"))
                             .clicked()
                             .then(|| self.resume_timer());
-                        ui.add_sized([xpos, ypos], egui::Button::new("Reset"))
+                        ui.add_sized([160.0, 40.0], egui::Button::new("Reset"))
                             .clicked()
                             .then(|| self.reset_timer());
                     });
