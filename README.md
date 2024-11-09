@@ -3,7 +3,7 @@
 A Pomodoro timer app built with Rust and egui.
 
 
-![image](https://github.com/chiefdinkan/Pom/assets/87846149/1b29b14b-e2b5-4578-9a41-e97934de1399)
+![image](https://github.com/user-attachments/assets/5b74bb0b-1065-45ea-86b2-4972b9db10d6)
 
 ## Features
 
@@ -45,6 +45,7 @@ cargo run --release
 - [x] notification support
 - [x] mutiple timer options
 - [x] user input for timer
+- [x] break timer with automatic timer resume
 - [] and more...
 
 ## Usage
