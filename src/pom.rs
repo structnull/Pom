@@ -1,334 +1,323 @@
-use eframe::App;
-use egui::{CentralPanel, Color32, Context, FontFamily, FontId, Pos2, Shape, Stroke, Vec2};
+use eframe::{egui, App};
+use egui::{Align2, CentralPanel, Color32, Context, FontFamily, FontId, Pos2, Stroke, Vec2};
 use notify_rust::Notification;
+use std::f32::consts::TAU;
 use std::time::{Duration, Instant};
 
-const POMODORO_TIME: u64 = 25; // minutes for Pomodoro session
-const BREAK_TIME: u64 = 5; // minutes for short break
+const DEFAULT_POM_MIN: u64 = 25;
+const DEFAULT_BREAK_MIN: u64 = 5;
+const ARC_SEGMENTS: usize = 96; 
+const FRAME_MS: u64 = 16; 
+const TIMER_TICK_MS: u64 = 200; 
+const VISUAL_SMOOTHING: f32 = 0.12; 
 
-enum Notify {
-    Finished,
-    Started,
-    Resume,
+#[derive(Debug, PartialEq, Clone, Copy)]
+enum TimerState {
+    Ready,
+    Running,
     Paused,
+    OnBreak,
+}
+
+#[derive(Clone, Copy)]
+enum NotifyKind {
+    Started,
+    Paused,
+    Resumed,
+    Finished,
     BreakStarted,
 }
 
 pub struct Pom {
     state: TimerState,
-    last_update: Instant,
-    remaining_time: Duration,
-    total_duration: Duration,
-    time_setting: u64,
+    pom_minutes: u64,
+    break_minutes: u64,
     sessions_completed: u32,
-    break_time_setting: u64,
-}
 
-#[derive(PartialEq)]
-enum TimerState {
-    Ready,
-    Running,
-    Paused,
-    Finished,
-    OnBreak,
+    duration: Duration,
+    remaining: Duration,
+    last_tick: Instant,
+    last_coarse_tick: Instant, 
+
+    visual_progress: f32,
 }
 
 impl Pom {
     pub fn new() -> Self {
-        let total_duration = Duration::new(POMODORO_TIME * 60, 0);
+        let duration = Duration::from_secs(DEFAULT_POM_MIN * 60);
+        let now = Instant::now();
         Self {
             state: TimerState::Ready,
-            last_update: Instant::now(),
-            remaining_time: total_duration,
-            total_duration,
-            time_setting: POMODORO_TIME,
+            pom_minutes: DEFAULT_POM_MIN,
+            break_minutes: DEFAULT_BREAK_MIN,
             sessions_completed: 0,
-            break_time_setting: BREAK_TIME, // Default to break time
+            duration,
+            remaining: duration,
+            last_tick: now,
+            last_coarse_tick: now,
+            visual_progress: 0.0,
         }
     }
 
-    // Method to send notifications
-    fn send_notification(&self, notify: Notify) {
-        match notify {
-            Notify::Finished => {
-                Notification::new()
-                    .summary("Pomodoro Timer")
-                    .body("Time's up!.")
-                    .show()
-                    .unwrap();
-            }
-            Notify::Started => {
-                Notification::new()
-                    .summary("Pomodoro Timer")
-                    .body("Timer started.")
-                    .show()
-                    .unwrap();
-            }
-            Notify::Paused => {
-                Notification::new()
-                    .summary("Pomodoro Timer")
-                    .body("Timer paused.")
-                    .show()
-                    .unwrap();
-            }
-            Notify::Resume => {
-                Notification::new()
-                    .summary("Pomodoro Timer")
-                    .body("Timer resumed.")
-                    .show()
-                    .unwrap();
-            }
-            Notify::BreakStarted => {
-                Notification::new()
-                    .summary("Pomodoro Timer")
-                    .body("Break started. Relax!")
-                    .show()
-                    .unwrap();
-            }
-        }
+    fn notify(&self, kind: NotifyKind) {
+        let (summary, body) = match kind {
+            NotifyKind::Started => ("Pomodoro", "Timer started."),
+            NotifyKind::Paused => ("Pomodoro", "Timer paused."),
+            NotifyKind::Resumed => ("Pomodoro", "Timer resumed."),
+            NotifyKind::Finished => ("Pomodoro", "Session finished."),
+            NotifyKind::BreakStarted => ("Pomodoro", "Break started. Relax!"),
+        };
+
+        let _ = Notification::new().summary(summary).body(body).show();
     }
 
-    // Start the timer for Pomodoro
-    fn start_timer(&mut self) {
-        let total_duration = Duration::new(self.time_setting * 60, 0);
-        self.total_duration = total_duration;
-        self.remaining_time = total_duration;
+    fn start_session(&mut self) {
+        self.duration = Duration::from_secs(self.pom_minutes * 60);
+        self.remaining = self.duration;
         self.state = TimerState::Running;
-        self.last_update = Instant::now();
-        self.send_notification(Notify::Started);
+        self.last_tick = Instant::now();
+        self.last_coarse_tick = Instant::now();
+        self.notify(NotifyKind::Started);
     }
 
-    // Start break timer
     fn start_break(&mut self) {
-        let break_duration = self.break_time_setting;
-        self.total_duration = Duration::new(break_duration * 60, 0);
-        self.remaining_time = self.total_duration;
+        self.duration = Duration::from_secs(self.break_minutes * 60);
+        self.remaining = self.duration;
         self.state = TimerState::OnBreak;
-        self.last_update = Instant::now();
-        self.send_notification(Notify::BreakStarted); // This sends the notification when break starts
+        self.last_tick = Instant::now();
+        self.last_coarse_tick = Instant::now();
+        self.notify(NotifyKind::BreakStarted);
     }
 
-    fn pause_timer(&mut self) {
-        if let TimerState::Running = self.state {
+    fn pause(&mut self) {
+        if self.state == TimerState::Running {
             self.state = TimerState::Paused;
-            self.send_notification(Notify::Paused);
+            self.notify(NotifyKind::Paused);
         }
     }
 
-    fn resume_timer(&mut self) {
-        if let TimerState::Paused = self.state {
+    fn resume(&mut self) {
+        if self.state == TimerState::Paused {
             self.state = TimerState::Running;
-            self.last_update = Instant::now();
-            self.send_notification(Notify::Resume);
+            self.last_tick = Instant::now();
+            self.last_coarse_tick = Instant::now();
+            self.notify(NotifyKind::Resumed);
         }
     }
 
-    fn reset_timer(&mut self) {
+    fn reset(&mut self) {
         self.state = TimerState::Ready;
-        self.remaining_time = self.total_duration;
+        self.duration = Duration::from_secs(self.pom_minutes * 60);
+        self.remaining = self.duration;
+        self.visual_progress = 0.0;
     }
 
-    fn update_timer(&mut self) {
-        if let TimerState::Running | TimerState::OnBreak = self.state {
-            let now = Instant::now();
-            let elapsed = now - self.last_update;
-            if self.remaining_time > elapsed {
-                self.remaining_time -= elapsed;
-            } else {
-                self.remaining_time = Duration::new(0, 0);
-                if self.state == TimerState::Running {
-                    self.state = TimerState::Finished;
-                    self.sessions_completed += 1;
-                    self.send_notification(Notify::Finished);
-                    // Start break after Pomodoro session
-                    self.start_break();
-                } else if self.state == TimerState::OnBreak {
-                    self.state = TimerState::Ready;
-                    self.send_notification(Notify::Finished);
-                    // Restart Pomodoro after break
-                    self.start_timer();
-                }
-            }
-            self.last_update = now;
+    /* ---------- Formatting + progress ---------- */
+    fn format_duration(d: Duration) -> String {
+        let total = d.as_secs();
+        let m = total / 60;
+        let s = total % 60;
+        format!("{:02}:{:02}", m, s)
+    }
+
+    fn true_progress(&self) -> f32 {
+        let total = self.duration.as_secs_f32();
+        if total <= 0.0 {
+            return 0.0;
         }
+        let rem = self.remaining.as_secs_f32().clamp(0.0, total);
+        ((total - rem) / total).clamp(0.0, 1.0)
     }
 
-    // Format the duration into a MM:SS string
-    fn format_duration(duration: Duration) -> String {
-        let minutes = duration.as_secs() / 60;
-        let seconds = duration.as_secs() % 60;
-        format!("{:02}:{:02}", minutes, seconds)
+    fn tick_timer(&mut self) -> bool {
+        let now = Instant::now();
+        let since_coarse = now.duration_since(self.last_coarse_tick);
+        if since_coarse < Duration::from_millis(TIMER_TICK_MS) {
+            return false;
+        }
+        self.last_coarse_tick = now;
+
+        if !matches!(self.state, TimerState::Running | TimerState::OnBreak) {
+            self.last_tick = now;
+            return false;
+        }
+
+        let elapsed = now.duration_since(self.last_tick);
+        self.last_tick = now;
+
+        if elapsed < self.remaining {
+            self.remaining -= elapsed;
+            return true;
+        }
+
+        self.remaining = Duration::ZERO;
+
+        match self.state {
+            TimerState::Running => {
+                self.sessions_completed = self.sessions_completed.saturating_add(1);
+                self.notify(NotifyKind::Finished);
+
+                self.start_break();
+            }
+            TimerState::OnBreak => {
+                self.notify(NotifyKind::Finished);
+
+                self.state = TimerState::Ready;
+                self.duration = Duration::from_secs(self.pom_minutes * 60);
+                self.remaining = self.duration;
+            }
+            _ => {}
+        }
+
+        true
     }
 
-    fn progress(&self) -> f32 {
-        (self.total_duration.as_secs_f32() - self.remaining_time.as_secs_f32())
-            / self.total_duration.as_secs_f32()
-    }
-
-    // Draw an arc representing the progress of the timer
     fn draw_arc(
         painter: &egui::Painter,
         center: Pos2,
         radius: f32,
-        start_angle: f32,
-        end_angle: f32,
+        progress: f32,
         stroke: Stroke,
     ) {
-        let segments = 100;
-        let angle_step = (end_angle - start_angle) / segments as f32;
-        let points: Vec<Pos2> = (0..=segments)
-            .map(|i| {
-                let angle = start_angle + i as f32 * angle_step;
-                Pos2 {
-                    x: center.x + radius * angle.cos(),
-                    y: center.y + radius * angle.sin(),
-                }
-            })
-            .collect();
-        painter.add(Shape::line(points, stroke));
+        if progress <= 0.0001 {
+            return;
+        }
+        let end_angle = progress.clamp(0.0, 1.0) * TAU;
+        let segments = ARC_SEGMENTS.max(4) as usize;
+        let step = end_angle / segments as f32;
+
+        let mut prev_angle = 0.0_f32;
+        let mut prev_pos = Pos2 {
+            x: center.x + radius * prev_angle.cos(),
+            y: center.y + radius * prev_angle.sin(),
+        };
+
+        for i in 1..=segments {
+            let angle = i as f32 * step;
+            let next_pos = Pos2 {
+                x: center.x + radius * angle.cos(),
+                y: center.y + radius * angle.sin(),
+            };
+            painter.line_segment([prev_pos, next_pos], stroke);
+            prev_pos = next_pos;
+            prev_angle = angle;
+        }
     }
 }
 
 impl App for Pom {
-    fn save(&mut self, _storage: &mut dyn eframe::Storage) {}
-
-    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {}
-
-    fn auto_save_interval(&self) -> Duration {
-        Duration::from_secs(30)
-    }
-
-    fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
-        Color32::from_rgba_unmultiplied(12, 12, 12, 180).to_normalized_gamma_f32()
-    }
-
-    fn persist_egui_memory(&self) -> bool {
-        true
-    }
-
-    fn raw_input_hook(&mut self, _ctx: &Context, _raw_input: &mut egui::RawInput) {}
-
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
-        self.update_timer();
+        let timer_changed = self.tick_timer();
 
-        // Request a repaint to ensure the UI continuously updates
-        ctx.request_repaint();
+        let target = self.true_progress();
+        self.visual_progress += (target - self.visual_progress) * VISUAL_SMOOTHING;
+
+        ctx.request_repaint_after(Duration::from_millis(FRAME_MS));
+
+        if timer_changed {
+            ctx.request_repaint();
+        }
 
         CentralPanel::default().show(ctx, |ui| {
             ui.heading("Pomodoro Timer");
 
-            // Calculate the size and position of the circular timer display
-            let available_size = ui.available_size();
-            let size = Vec2::new(
-                available_size.x.min(available_size.y),
-                available_size.x.min(available_size.y),
-            );
-            let (rect, _response) = ui.allocate_at_least(size, egui::Sense::hover());
-
+            let avail = ui.available_size();
+            let size = avail.x.min(avail.y).max(200.0);
+            let (rect, _) = ui.allocate_exact_size(Vec2::new(size, size), egui::Sense::hover());
             let painter = ui.painter();
             let center = rect.center();
-            let radius = rect.width() / 2.0;
-            let nrad = radius - 80.0;
+            let radius = size * 0.36;
 
-            // Draw the circular progress bar background
-            painter.circle_stroke(center, nrad, Stroke::new(10.0, Color32::from_gray(80)));
+            painter.circle_stroke(center, radius, Stroke::new(8.0, Color32::from_gray(40)));
 
-            match self.state {
-                TimerState::Finished => {
-                    painter.text(
-                        center,
-                        egui::Align2::CENTER_CENTER,
-                        "Time's up!",
-                        egui::TextStyle::Heading.resolve(ui.style()),
-                        Color32::DARK_RED,
-                    );
-                }
-                TimerState::Paused => {
-                    painter.text(
-                        center,
-                        egui::Align2::CENTER_CENTER,
-                        "Paused",
-                        egui::TextStyle::Heading.resolve(ui.style()),
-                        Color32::YELLOW,
-                    );
-                }
-                TimerState::OnBreak => {
-                    painter.text(
-                        center,
-                        egui::Align2::CENTER_CENTER,
-                        "On Break",
-                        egui::TextStyle::Heading.resolve(ui.style()),
-                        Color32::LIGHT_BLUE,
-                    );
-                }
-                _ => {
-                    let progress_angle = self.progress() * std::f32::consts::TAU;
+            Pom::draw_arc(
+                painter,
+                center,
+                radius,
+                self.visual_progress,
+                Stroke::new(10.0, Color32::from_rgb(110, 200, 110)),
+            );
 
-                    // Draw the progress arc
-                    Pom::draw_arc(
-                        painter,
-                        center,
-                        nrad,
-                        0.0,
-                        progress_angle,
-                        Stroke::new(10.0, Color32::from_rgb(100, 200, 100)),
-                    );
+            let middle_text = match self.state {
+                TimerState::Paused => "Paused".to_owned(),
+                TimerState::OnBreak => format!("Break\n{}", Pom::format_duration(self.remaining)),
+                _ => Pom::format_duration(self.remaining),
+            };
 
-                    let text = Pom::format_duration(self.remaining_time);
-                    let font_id = FontId::new(50.0, FontFamily::Proportional);
-                    painter.text(
-                        center,
-                        egui::Align2::CENTER_CENTER,
-                        text,
-                        font_id,
-                        Color32::WHITE,
-                    );
-                }
-            }
+            painter.text(
+                center,
+                Align2::CENTER_CENTER,
+                middle_text,
+                FontId::new(36.0, FontFamily::Proportional),
+                Color32::WHITE,
+            );
 
-            egui::TopBottomPanel::bottom("bottom_panel").show(ctx, |ui| {
-                ui.with_layout(
-                    egui::Layout::top_down_justified(egui::Align::Center),
-                    |ui| {
-                        ui.add(
-                            egui::Slider::new(&mut self.time_setting, 0..=60)
-                                .clamp_to_range(true)
-                                .text("Pomodoro Timer (min)")
-                                .trailing_fill(true)
-                                .integer(),
-                        );
-                        ui.add(
-                            egui::Slider::new(&mut self.break_time_setting, 0..=60)
-                                .clamp_to_range(true)
-                                .text("Break Time (min)")
-                                .trailing_fill(true)
-                                .integer(),
-                        );
-                    },
+            ui.add_space(8.0);
+
+            ui.horizontal(|ui| {
+                let pom_before = self.pom_minutes;
+                let break_before = self.break_minutes;
+
+                ui.add(
+                    egui::Slider::new(&mut self.pom_minutes, 1..=90)
+                        .clamp_to_range(true)
+                        .text("Pomodoro (min)")
+                        .integer(),
                 );
+                ui.add(
+                    egui::Slider::new(&mut self.break_minutes, 1..=30)
+                        .clamp_to_range(true)
+                        .text("Break (min)")
+                        .integer(),
+                );
+
+                if self.state == TimerState::Ready
+                    && (pom_before != self.pom_minutes || break_before != self.break_minutes)
+                {
+                    self.duration = Duration::from_secs(self.pom_minutes * 60);
+                    self.remaining = self.duration;
+                    self.visual_progress = 0.0;
+                }
             });
 
-            ui.label(format!("Sessions Completed: {}", self.sessions_completed));
+            ui.label(format!("Sessions completed: {}", self.sessions_completed));
+            ui.add_space(6.0);
 
-            ui.with_layout(
-                egui::Layout::top_down_justified(egui::Align::Center),
-                |ui| {
-                    ui.horizontal(|ui| {
-                        ui.add_sized([160.0, 40.0], egui::Button::new("Start"))
-                            .clicked()
-                            .then(|| self.start_timer());
-                        ui.add_sized([160.0, 40.0], egui::Button::new("Pause"))
-                            .clicked()
-                            .then(|| self.pause_timer());
-                        ui.add_sized([160.0, 40.0], egui::Button::new("Resume"))
-                            .clicked()
-                            .then(|| self.resume_timer());
-                        ui.add_sized([160.0, 40.0], egui::Button::new("Reset"))
-                            .clicked()
-                            .then(|| self.reset_timer());
-                    });
-                },
-            );
+            ui.horizontal(|ui| {
+                let start_enabled = self.state == TimerState::Ready;
+                let pause_enabled = self.state == TimerState::Running;
+                let resume_enabled = self.state == TimerState::Paused;
+
+                if ui
+                    .add_enabled(start_enabled, egui::Button::new("Start"))
+                    .clicked()
+                {
+                    self.start_session();
+                    ctx.request_repaint();
+                }
+
+                if ui
+                    .add_enabled(pause_enabled, egui::Button::new("Pause"))
+                    .clicked()
+                {
+                    self.pause();
+                    ctx.request_repaint();
+                }
+
+                if ui
+                    .add_enabled(resume_enabled, egui::Button::new("Resume"))
+                    .clicked()
+                {
+                    self.resume();
+                    ctx.request_repaint();
+                }
+
+                if ui.button("Reset").clicked() {
+                    self.reset();
+                    ctx.request_repaint();
+                }
+            });
         });
     }
 }
+
